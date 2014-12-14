@@ -126,6 +126,9 @@
     <!-- blur surface -->
     <uses-permission android:name="android.permission.ACCESS_SURFACE_FLINGER" />
 
+    <!-- Heads up -->
+    <uses-permission android:name="android.permission.CHANGE_HEADS_UP_STATE" />
+
     <application
         android:name=".SystemUIApplication"
         android:persistent="true"
