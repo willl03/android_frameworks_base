@@ -29,6 +29,8 @@ import android.content.res.Resources;
 import android.provider.AlarmClock;
 import android.provider.Settings;
 import android.graphics.drawable.Drawable;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
@@ -135,9 +137,12 @@ public class KeyguardStatusView extends GridLayout implements
         mDateView.setShowCurrentUserTime(true);
         mClockView.setShowCurrentUserTime(true);
         mOwnerInfo = (TextView) findViewById(R.id.owner_info);
-        mWeatherIcon = (ImageView) findViewById(R.id.weather_image);
-        mWeatherCity = (TextView) findViewById(R.id.city);
-        mTemperatureText = (TextView) findViewById(R.id.temperature);
+        if (Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.LOCKSCREEN_WEATHER, 1, UserHandle.USER_CURRENT) == 1) {
+            mWeatherIcon = (ImageView) findViewById(R.id.weather_image);
+            mWeatherCity = (TextView) findViewById(R.id.city);
+            mTemperatureText = (TextView) findViewById(R.id.temperature);
+        }
         mLockPatternUtils = new LockPatternUtils(getContext());
         final boolean screenOn = KeyguardUpdateMonitor.getInstance(mContext).isScreenOn();
         setEnableMarquee(screenOn);
@@ -214,14 +219,20 @@ public class KeyguardStatusView extends GridLayout implements
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         KeyguardUpdateMonitor.getInstance(mContext).registerCallback(mInfoCallback);
-        mWeatherController.addCallback(this);
+        if (Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.LOCKSCREEN_WEATHER, 1, UserHandle.USER_CURRENT) == 1) {
+            mWeatherController.addCallback(this);
+        }
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         KeyguardUpdateMonitor.getInstance(mContext).removeCallback(mInfoCallback);
-        mWeatherController.removeCallback(this);
+        if (Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.LOCKSCREEN_WEATHER, 1, UserHandle.USER_CURRENT) == 1) {
+            mWeatherController.removeCallback(this);
+        }
     }
 
     public int getAppWidgetId() {
