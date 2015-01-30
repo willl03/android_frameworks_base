@@ -250,9 +250,9 @@ public class RecentsActivity extends Activity implements RecentsView.RecentsView
             }
             findViewById(R.id.clear_recents).setVisibility(View.VISIBLE);
             if (mRecentsView.hasSearchBar()) {
-                mRecentsView.setSearchBarVisibility(View.VISIBLE);
+                mRecentsView.setSearchBarVisibility(View.GONE);
             } else {
-                addSearchBarAppWidgetView();
+                //addSearchBarAppWidgetView();
             }
         }
 
@@ -287,8 +287,7 @@ public class RecentsActivity extends Activity implements RecentsView.RecentsView
                         ssp.bindSearchAppWidget(mAppWidgetHost);
                 if (widgetInfo != null) {
                     // Save the app widget id into the settings
-                    mConfig.updateSearchBarAppWidgetId(this, widgetInfo.first);
-                    mSearchAppWidgetInfo = widgetInfo.second;
+                    mConfig.updateSearchBarAppWidgetId(this, -1);
                 } else {
                     mConfig.updateSearchBarAppWidgetId(this, -1);
                 }
