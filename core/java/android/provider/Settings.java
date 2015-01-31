@@ -3054,6 +3054,12 @@ public final class Settings {
         public static final String DISABLE_FC_NOTIFICATIONS = "disable_fc_notifications";
 
         /**
+         * Enable/Disable camera sound
+         * @hide
+         */
+        public static final String CAMERA_SOUNDS = "camera_sounds";
+
+        /**
          * Whether lock-to-app will be triggered by long-press on recents.
          * @hide
          */

@@ -16,8 +16,11 @@
 
 package android.media;
 
+import android.content.Context;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.SystemProperties;
+import android.provider.Settings;
 import android.util.Log;
 
 /**
@@ -90,6 +93,9 @@ public class MediaActionSound {
 
     private static final int SOUND_NOT_LOADED = -1;
 
+    private Context mContext;
+    private static final String PROP_CAMERA_SOUND = "persist.sys.camera-sound";
+
     /**
      * Construct a new MediaActionSound instance. Only a single instance is
      * needed for playing any platform media action sound; you do not need a
@@ -160,15 +166,21 @@ public class MediaActionSound {
      * @see #STOP_VIDEO_RECORDING
      */
     public synchronized void play(int soundName) {
-        if (soundName < 0 || soundName >= SOUND_FILES.length) {
-            throw new RuntimeException("Unknown sound requested: " + soundName);
-        }
-        if (mSoundIds[soundName] == SOUND_NOT_LOADED) {
-            mSoundIdToPlay =
-                    mSoundPool.load(SOUND_FILES[soundName], 1);
-            mSoundIds[soundName] = mSoundIdToPlay;
+        if (Settings.System.getInt(mContext.getContentResolver(),
+                       Settings.System.CAMERA_SOUNDS, 0) == 1) {
+            SystemProperties.set(PROP_CAMERA_SOUND, "1");
+            if (soundName < 0 || soundName >= SOUND_FILES.length) {
+             throw new RuntimeException("Unknown sound requested: " + soundName);
+            }
+            if (mSoundIds[soundName] == SOUND_NOT_LOADED) {
+                mSoundIdToPlay =
+                        mSoundPool.load(SOUND_FILES[soundName], 1);
+                mSoundIds[soundName] = mSoundIdToPlay;
+            } else {
+                mSoundPool.play(mSoundIds[soundName], 1.0f, 1.0f, 0, 0, 1.0f);
+            }
         } else {
-            mSoundPool.play(mSoundIds[soundName], 1.0f, 1.0f, 0, 0, 1.0f);
+            SystemProperties.set(PROP_CAMERA_SOUND, "0");
         }
     }
 
