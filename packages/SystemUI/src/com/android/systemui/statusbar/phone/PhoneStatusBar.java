@@ -506,7 +506,10 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             mAutomaticBrightness = mode != Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL;
             mBrightnessControl = Settings.System.getInt(
                     resolver, Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL, 0) == 1;
-
+            mTickerEnabled = Settings.System.getIntForUser(
+                    resolver, Settings.System.STATUS_BAR_TICKER_ENABLED,
+                    mContext.getResources().getBoolean(R.bool.enable_ticker)
+                            ? 1 : 0, UserHandle.USER_CURRENT) == 1;
             mClockLocation = Settings.System.getInt(
                     resolver, Settings.System.STATUS_BAR_CLOCK, Clock.STYLE_CLOCK_RIGHT);
             updateClockView();
@@ -549,10 +552,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
     public void setClockAndDateStatus() {
         if (mNotificationIcons != null) {
             mNotificationIcons.setClockAndDateStatus(mClockLocation);
-            mTickerEnabled = Settings.System.getIntForUser(
-                    resolver, Settings.System.STATUS_BAR_TICKER_ENABLED,
-                    mContext.getResources().getBoolean(R.bool.enable_ticker)
-                            ? 1 : 0, UserHandle.USER_CURRENT) == 1;
         }
     }
 
