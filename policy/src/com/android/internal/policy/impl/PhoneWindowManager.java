@@ -2698,7 +2698,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     @Override
     public long interceptKeyBeforeDispatching(WindowState win, KeyEvent event, int policyFlags) {
         final boolean keyguardOn = keyguardOn();
-        final int keyCode = event.getKeyCode();
         final int scanCode = event.getScanCode();
         final int repeatCount = event.getRepeatCount();
         final int metaState = event.getMetaState();
