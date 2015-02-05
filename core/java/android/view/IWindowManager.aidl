@@ -244,11 +244,6 @@ interface IWindowManager
     boolean hasPermanentMenuKey();
 
     /**
-     * Device can generate KEY_ACTION_MENU keypress
-     */
-    boolean hasMenuKeyEnabled();
-
-    /**
      * Lock the device immediately with the specified options (can be null).
      */
     void lockNow(in Bundle options);

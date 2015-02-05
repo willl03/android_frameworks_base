@@ -1191,11 +1191,6 @@ public interface WindowManagerPolicy {
     public boolean hasPermanentMenuKey();
 
     /**
-     * Specifies whether device can generate KEY_ACTION_MENU keypress
-     */
-    public boolean hasMenuKeyEnabled();
-
-    /**
      * Lock the device now.
      */
     public void lockNow(Bundle options);
