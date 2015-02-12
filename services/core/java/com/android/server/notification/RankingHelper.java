@@ -464,7 +464,6 @@ public class RankingHelper implements RankingConfig {
         updateConfig();
     }
 
-
     public void dump(PrintWriter pw, String prefix, NotificationManagerService.DumpFilter filter) {
         if (filter == null) {
             final int N = mSignalExtractors.length;

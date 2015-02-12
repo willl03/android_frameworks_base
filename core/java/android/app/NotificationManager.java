@@ -271,7 +271,7 @@ public class NotificationManager
     public int getShowNotificationForPackageOnKeyguard(String pkg, int uid) {
         INotificationManager service = getService();
         try {
-            return service.getShowNotificationForPackageOnKeyguard(pkg, uid);
+            return getService().getShowNotificationForPackageOnKeyguard(pkg, uid);
         } catch (RemoteException e) {
             return Notification.SHOW_ALL_NOTI_ON_KEYGUARD;
         }
