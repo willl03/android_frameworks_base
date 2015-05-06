@@ -72,6 +72,8 @@ public class IconPackHelper {
     private static final String ICON_BACK_TAG = "iconback";
     private static final String ICON_UPON_TAG = "iconupon";
     private static final String ICON_SCALE_TAG = "scale";
+    private static final String ICON_ROTATE_TAG = "rotate";
+    private static final String ICON_TRANSLATE_TAG = "translate";
     private static final String ICON_BACK_FORMAT = "iconback%d";
 
     // Palettized icon background constants
@@ -86,6 +88,12 @@ public class IconPackHelper {
     private static final String MUTED_LIGHT_VALUE = "mutedLight";
     private static final String MUTED_DARK_VALUE = "mutedDark";
     private static final int NUM_PALETTE_COLORS = 32;
+
+    // Rotation and translation constants
+    private static final String ANGLE_ATTR = "angle";
+    private static final String ANGLE_VARIANCE = "plusMinus";
+    private static final String TRANSLATE_X_ATTR = "xOffset";
+    private static final String TRANSLATE_Y_ATTR = "yOffset";
 
     private static final ComponentName ICON_BACK_COMPONENT;
     private static final ComponentName ICON_MASK_COMPONENT;
@@ -147,6 +155,14 @@ public class IconPackHelper {
                     }
                 }
                 iconPackResources.put(ICON_SCALE_COMPONENT, factor);
+                continue;
+            }
+
+            if (parseRotationComponent(parser, mComposedIconInfo)) {
+                continue;
+            }
+
+            if (parseTranslationComponent(parser, mComposedIconInfo)) {
                 continue;
             }
 
@@ -277,6 +293,50 @@ public class IconPackHelper {
         }
     }
 
+    private boolean parseRotationComponent(XmlPullParser parser, ComposedIconInfo iconInfo) {
+        if (!parser.getName().equalsIgnoreCase(ICON_ROTATE_TAG)) return false;
+        String angle = parser.getAttributeValue(null, ANGLE_ATTR);
+        String variance = parser.getAttributeValue(null, ANGLE_VARIANCE);
+        if (angle != null) {
+            try {
+                iconInfo.iconRotation = Float.valueOf(angle);
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Error parsing " + ANGLE_ATTR, e);
+            }
+        }
+        if (variance != null) {
+            try {
+                iconInfo.iconRotationVariance = Float.valueOf(variance);
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Error parsing " + ANGLE_VARIANCE, e);
+            }
+        }
+        return true;
+    }
+
+    private boolean parseTranslationComponent(XmlPullParser parser, ComposedIconInfo iconInfo) {
+        if (!parser.getName().equalsIgnoreCase(ICON_TRANSLATE_TAG)) return false;
+
+        final float density = mContext.getResources().getDisplayMetrics().density;
+        String translateX = parser.getAttributeValue(null, TRANSLATE_X_ATTR);
+        String translateY = parser.getAttributeValue(null, TRANSLATE_Y_ATTR);
+        if (translateX != null) {
+            try {
+                iconInfo.iconTranslationX = Float.valueOf(translateX) * density;
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Error parsing " + TRANSLATE_X_ATTR, e);
+            }
+        }
+        if (translateY != null) {
+            try {
+                iconInfo.iconTranslationY = Float.valueOf(translateY) * density;
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Error parsing " + TRANSLATE_Y_ATTR, e);
+            }
+        }
+        return true;
+    }
+
     public void loadIconPack(String packageName) throws NameNotFoundException {
         if (packageName == null) {
             mLoadedIconPackResource = null;
@@ -284,6 +344,9 @@ public class IconPackHelper {
             mComposedIconInfo.iconBacks = null;
             mComposedIconInfo.iconMask = mComposedIconInfo.iconUpon = 0;
             mComposedIconInfo.iconScale = 0;
+            mComposedIconInfo.iconRotation = 0;
+            mComposedIconInfo.iconTranslationX = 0;
+            mComposedIconInfo.iconTranslationY = 0;
             mComposedIconInfo.colorFilter = null;
             mComposedIconInfo.iconPaletteBack = 0;
             mComposedIconInfo.swatchType = ComposedIconInfo.SwatchType.None;
@@ -510,8 +573,15 @@ public class IconPackHelper {
 
     public static boolean shouldComposeIcon(ComposedIconInfo iconInfo) {
         return iconInfo != null &&
-                (iconInfo.iconBacks != null || iconInfo.iconMask != 0 ||
-                        iconInfo.iconUpon != 0 || iconInfo.colorFilter != null);
+                (iconInfo.iconBacks != null ||
+                        iconInfo.iconMask != 0 ||
+                        iconInfo.iconUpon != 0 ||
+                        iconInfo.colorFilter != null ||
+                        iconInfo.iconPaletteBack != 0 ||
+                        iconInfo.iconRotation != 0 ||
+                        iconInfo.iconRotationVariance != 0 ||
+                        iconInfo.iconTranslationX != 0 ||
+                        iconInfo.iconTranslationY != 0);
     }
 
     public static class IconCustomizer {
@@ -543,9 +613,7 @@ public class IconPackHelper {
             } else if (iconInfo.iconBacks != null && iconInfo.iconBacks.length > 0) {
                 back = iconInfo.iconBacks[sRandom.nextInt(iconInfo.iconBacks.length)];
             }
-            Bitmap bmp = createIconBitmap(icon, res, back, iconInfo.iconMask, iconInfo.iconUpon,
-                    iconInfo.iconScale, iconInfo.iconSize, iconInfo.colorFilter,
-                    iconInfo.swatchType, defaultSwatchColor);
+            Bitmap bmp = createIconBitmap(icon, res, back, defaultSwatchColor, iconInfo);
             return bmp != null ? new BitmapDrawable(res, bmp): null;
         }
 
@@ -576,9 +644,7 @@ public class IconPackHelper {
                 if (DEBUG) {
                     Log.d(TAG, "Composing icon for " + pkgName);
                 }
-                Bitmap bmp = createIconBitmap(baseIcon, res, back, iconInfo.iconMask,
-                        iconInfo.iconUpon, iconInfo.iconScale, iconInfo.iconSize,
-                        iconInfo.colorFilter, iconInfo.swatchType, defaultSwatchColor);
+                Bitmap bmp = createIconBitmap(baseIcon, res, back, defaultSwatchColor, iconInfo);
                 if (!cacheComposedIcon(bmp, getCachedIconName(pkgName, resId, outValue.density))) {
                     Log.w(TAG, "Unable to cache icon " + outValue.string);
                     // restore the original TypedValue
@@ -588,9 +654,8 @@ public class IconPackHelper {
         }
 
         private static Bitmap createIconBitmap(Drawable icon, Resources res, int iconBack,
-                int iconMask, int iconUpon, float scale, int iconSize, float[] colorFilter,
-                ComposedIconInfo.SwatchType swatchType, int defaultSwatchColor) {
-            if (iconSize <= 0) return null;
+                int defaultSwatchColor, ComposedIconInfo iconInfo) {
+            if (iconInfo.iconSize <= 0) return null;
 
             final Canvas canvas = new Canvas();
             canvas.setDrawFilter(new PaintFlagsDrawFilter(Paint.ANTI_ALIAS_FLAG,
@@ -600,12 +665,12 @@ public class IconPackHelper {
             int backTintColor = 0;
             if (icon instanceof PaintDrawable) {
                 PaintDrawable painter = (PaintDrawable) icon;
-                painter.setIntrinsicWidth(iconSize);
-                painter.setIntrinsicHeight(iconSize);
+                painter.setIntrinsicWidth(iconInfo.iconSize);
+                painter.setIntrinsicHeight(iconInfo.iconSize);
 
                 // A PaintDrawable does not have an exact size
-                width = iconSize;
-                height = iconSize;
+                width = iconInfo.iconSize;
+                height = iconInfo.iconSize;
             } else if (icon instanceof BitmapDrawable) {
                 // Ensure the bitmap has a density.
                 BitmapDrawable bitmapDrawable = (BitmapDrawable) icon;
@@ -620,17 +685,17 @@ public class IconPackHelper {
                 // respect the original size of the icon
                 // otherwise enormous icons can easily create
                 // OOM situations.
-                if ((bitmap.getWidth() < (iconSize * 2))
-                        && (bitmap.getHeight() < (iconSize * 2))) {
+                if ((bitmap.getWidth() < (iconInfo.iconSize * 2))
+                        && (bitmap.getHeight() < (iconInfo.iconSize * 2))) {
                     width = bitmap.getWidth();
                     height = bitmap.getHeight();
                 } else {
-                    width = iconSize;
-                    height = iconSize;
+                    width = iconInfo.iconSize;
+                    height = iconInfo.iconSize;
                 }
-                if (swatchType != ComposedIconInfo.SwatchType.None) {
+                if (iconInfo.swatchType != ComposedIconInfo.SwatchType.None) {
                     Palette palette = Palette.generate(bitmap, NUM_PALETTE_COLORS);
-                    switch (swatchType) {
+                    switch (iconInfo.swatchType) {
                         case Vibrant:
                             backTintColor = palette.getVibrantColor(defaultSwatchColor);
                             break;
@@ -655,7 +720,7 @@ public class IconPackHelper {
                     }
                 }
             } else if (icon instanceof VectorDrawable) {
-                width = height = iconSize;
+                width = height = iconInfo.iconSize;
             }
 
             if (width <= 0 || height <= 0) return null;
@@ -669,22 +734,31 @@ public class IconPackHelper {
             oldBounds.set(icon.getBounds());
             icon.setBounds(0, 0, width, height);
             canvas.save();
-            canvas.scale(scale, scale, width / 2, height / 2);
-            if (colorFilter != null) {
+            final float halfWidth = width / 2f;
+            final float halfHeight = height / 2f;
+            float angle = iconInfo.iconRotation;
+            if (iconInfo.iconRotationVariance != 0) {
+                angle += (sRandom.nextFloat() * (iconInfo.iconRotationVariance * 2))
+                        - iconInfo.iconRotationVariance;
+            }
+            canvas.scale(iconInfo.iconScale, iconInfo.iconScale, halfWidth, halfHeight);
+            canvas.translate(iconInfo.iconTranslationX, iconInfo.iconTranslationY);
+            canvas.rotate(angle, halfWidth, halfHeight);
+            if (iconInfo.colorFilter != null) {
                 Paint p = null;
                 if (icon instanceof BitmapDrawable) {
                     p = ((BitmapDrawable) icon).getPaint();
                 } else if (icon instanceof PaintDrawable) {
                     p = ((PaintDrawable) icon).getPaint();
                 }
-                if (p != null) p.setColorFilter(new ColorMatrixColorFilter(colorFilter));
+                if (p != null) p.setColorFilter(new ColorMatrixColorFilter(iconInfo.colorFilter));
             }
             icon.draw(canvas);
             canvas.restore();
 
             // Mask off the original if iconMask is not null
-            if (iconMask != 0) {
-                Drawable mask = res.getDrawable(iconMask);
+            if (iconInfo.iconMask != 0) {
+                Drawable mask = res.getDrawable(iconInfo.iconMask);
                 if (mask != null) {
                     mask.setBounds(icon.getBounds());
                     ((BitmapDrawable) mask).getPaint().setXfermode(
@@ -708,8 +782,8 @@ public class IconPackHelper {
                 }
             }
             // Finally draw the foreground if one was supplied
-            if (iconUpon != 0) {
-                Drawable upon = res.getDrawable(iconUpon);
+            if (iconInfo.iconUpon != 0) {
+                Drawable upon = res.getDrawable(iconInfo.iconUpon);
                 if (upon != null) {
                     upon.setBounds(icon.getBounds());
                     upon.draw(canvas);
