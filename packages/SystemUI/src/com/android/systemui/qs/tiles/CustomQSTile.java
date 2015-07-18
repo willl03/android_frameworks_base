@@ -20,6 +20,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Process;
 import android.os.UserHandle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -27,17 +28,25 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
+
+import com.android.systemui.qs.QSDetailItemsGrid;
+import com.android.systemui.qs.QSDetailItemsList;
 import cyanogenmod.app.CustomTile;
 import cyanogenmod.app.StatusBarPanelCustomTile;
 
 import com.android.systemui.R;
 import com.android.systemui.qs.QSTile;
 
+import java.util.Arrays;
+
 public class CustomQSTile extends QSTile<QSTile.State> {
 
+    private CustomTile.ExpandedStyle mExpandedStyle;
     private PendingIntent mOnClick;
     private Uri mOnClickUri;
     private int mCurrentUserId;
@@ -46,8 +55,7 @@ public class CustomQSTile extends QSTile<QSTile.State> {
 
     public CustomQSTile(Host host, StatusBarPanelCustomTile tile) {
         super(host);
-        refreshState(tile);
-        mDetailAdapter = new CustomQSDetailAdapter();
+        mTile = tile;
     }
 
     @Override
@@ -76,18 +84,23 @@ public class CustomQSTile extends QSTile<QSTile.State> {
 
     @Override
     protected void handleLongClick() {
-        showDetail(true);
+        if (mExpandedStyle == null) {
+            showDetail(true);
+        }
     }
 
     @Override
     protected void handleClick() {
         try {
+            if (mExpandedStyle != null &&
+                    mExpandedStyle.getStyle() != CustomTile.ExpandedStyle.NO_STYLE) {
+                showDetail(true);
+            }
             if (mOnClick != null) {
-                if (mOnClick.isActivity()) {
-                    mHost.collapsePanels();
-                }
+                mHost.collapsePanels();
                 mOnClick.send();
             } else if (mOnClickUri != null) {
+                mHost.collapsePanels();
                 final Intent intent = new Intent().setData(mOnClickUri);
                 mContext.sendBroadcastAsUser(intent, new UserHandle(mCurrentUserId));
             }
@@ -98,16 +111,17 @@ public class CustomQSTile extends QSTile<QSTile.State> {
 
     @Override
     protected void handleUpdateState(State state, Object arg) {
-        if (!(arg instanceof StatusBarPanelCustomTile)) return;
-        mTile = (StatusBarPanelCustomTile) arg;
+        if (arg instanceof StatusBarPanelCustomTile) {
+            mTile = (StatusBarPanelCustomTile) arg;
+        }
         final CustomTile customTile = mTile.getCustomTile();
-        state.visible = true;
         state.contentDescription = customTile.contentDescription;
         state.label = customTile.label;
         state.iconId = 0;
+        state.visible = true;
         final int iconId = customTile.icon;
         if (iconId != 0) {
-            final String iconPackage = mTile.getPackage();
+            final String iconPackage = mTile.getResPkg();
             if (!TextUtils.isEmpty(iconPackage)) {
                 state.icon = new ExternalIcon(iconPackage, iconId);
             } else {
@@ -116,12 +130,26 @@ public class CustomQSTile extends QSTile<QSTile.State> {
         }
         mOnClick = customTile.onClick;
         mOnClickUri = customTile.onClickUri;
+        mExpandedStyle = customTile.expandedStyle;
+        mDetailAdapter = new CustomQSDetailAdapter();
     }
 
-    private class CustomQSDetailAdapter implements DetailAdapter {
+    private boolean isDynamicTile() {
+        return mTile.getPackage().equals(mContext.getPackageName())
+                || mTile.getUid() == Process.SYSTEM_UID;
+    }
 
-        @Override
+    private class CustomQSDetailAdapter implements DetailAdapter, AdapterView.OnItemClickListener,
+            QSDetailItemsGrid.QSDetailItemsGridAdapter.OnPseudoGriditemClickListener {
+        private QSDetailItemsList.QSCustomDetailListAdapter mListAdapter;
+        private QSDetailItemsGrid.QSDetailItemsGridAdapter mGridAdapter;
+
         public int getTitle() {
+            if (isDynamicTile()) {
+                return mContext.getResources().getIdentifier(
+                        String.format("dynamic_qs_tile_%s_label", mTile.getTag()),
+                            "string", mContext.getPackageName());
+            }
             return R.string.quick_settings_custom_tile_detail_title;
         }
 
@@ -148,21 +176,71 @@ public class CustomQSTile extends QSTile<QSTile.State> {
 
         @Override
         public View createDetailView(Context context, View convertView, ViewGroup parent) {
-            LinearLayout rootView = (LinearLayout) LayoutInflater.from(context)
-                    .inflate(R.layout.qs_custom_detail, parent, false);
-            ImageView imageView = (ImageView) rootView.findViewById(R.id.custom_qs_tile_icon);
-            TextView customTileTitle = (TextView) rootView.findViewById(R.id.custom_qs_tile_title);
-            TextView customTilePkg = (TextView) rootView
-                    .findViewById(R.id.custom_qs_tile_package);
-            TextView customTileContentDesc = (TextView) rootView
-                    .findViewById(R.id.custom_qs_tile_content_description);
-
-            // icon is cached in state, fetch it
-            imageView.setImageDrawable(getState().icon.getDrawable(mContext));
-            customTileTitle.setText(mTile.getCustomTile().label);
-            customTilePkg.setText(mTile.getPackage());
-            customTileContentDesc.setText(mTile.getCustomTile().contentDescription);
+            View rootView = null;
+            if (mExpandedStyle == null) {
+                rootView = (LinearLayout) LayoutInflater.from(context)
+                        .inflate(R.layout.qs_custom_detail, parent, false);
+                ImageView imageView = (ImageView)
+                        rootView.findViewById(R.id.custom_qs_tile_icon);
+                TextView customTileTitle = (TextView)
+                        rootView.findViewById(R.id.custom_qs_tile_title);
+                TextView customTilePkg = (TextView) rootView
+                        .findViewById(R.id.custom_qs_tile_package);
+                TextView customTileContentDesc = (TextView) rootView
+                        .findViewById(R.id.custom_qs_tile_content_description);
+                // icon is cached in state, fetch it
+                imageView.setImageDrawable(getState().icon.getDrawable(mContext));
+                customTileTitle.setText(mTile.getCustomTile().label);
+                if (isDynamicTile()) {
+                    customTilePkg.setText(R.string.quick_settings_dynamic_tile_detail_title);
+                } else {
+                    customTilePkg.setText(mTile.getPackage());
+                    customTileContentDesc.setText(mTile.getCustomTile().contentDescription);
+                }
+            } else {
+                switch (mExpandedStyle.getStyle()) {
+                    case CustomTile.ExpandedStyle.GRID_STYLE:
+                        rootView = QSDetailItemsGrid.inflate(context, parent, false);
+                        mGridAdapter = ((QSDetailItemsGrid) rootView)
+                                .createAndSetAdapter(mTile.getPackage(),
+                                        mExpandedStyle.getExpandedItems());
+                        mGridAdapter.setOnPseudoGridItemClickListener(this);
+                        break;
+                    case CustomTile.ExpandedStyle.LIST_STYLE:
+                    default:
+                        rootView = QSDetailItemsList.convertOrInflate(context, convertView, parent);
+                        ListView listView = ((QSDetailItemsList) rootView).getListView();
+                        listView.setDivider(null);
+                        listView.setOnItemClickListener(this);
+                        listView.setAdapter(mListAdapter =
+                                new QSDetailItemsList.QSCustomDetailListAdapter(mTile.getPackage(),
+                                        context, Arrays.asList(mExpandedStyle.getExpandedItems())));
+                        break;
+                }
+            }
             return rootView;
+        }
+
+        @Override
+        public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
+            CustomTile.ExpandedItem item = mListAdapter.getItem(position);
+            sendEvent(item.onClickPendingIntent);
+        }
+
+        @Override
+        public void onPsuedoGridItemClick(View view, CustomTile.ExpandedItem item) {
+            sendEvent(item.onClickPendingIntent);
+        }
+
+        private void sendEvent(PendingIntent intent) {
+            try {
+                if (intent.isActivity()) {
+                    mHost.collapsePanels();
+                }
+                intent.send();
+            } catch (PendingIntent.CanceledException e) {
+                //
+            }
         }
     }
 }

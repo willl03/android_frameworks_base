@@ -16,31 +16,22 @@
 
 package com.android.systemui.statusbar;
 
-import android.app.ActivityManager;
-import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
+import android.animation.ObjectAnimator;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.AsyncTask;
-import android.os.Handler;
-import android.os.PowerManager;
-import android.os.UserHandle;
-import android.provider.Settings;
+import android.support.v7.graphics.Palette;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
-import com.android.keyguard.KeyguardUpdateMonitor;
-import com.android.keyguard.KeyguardUpdateMonitorCallback;
+
 import com.android.systemui.R;
-import com.android.systemui.cm.UserContentObserver;
-import com.android.systemui.statusbar.phone.PhoneStatusBar;
 import com.pheelicks.visualizer.AudioData;
 import com.pheelicks.visualizer.FFTData;
 import com.pheelicks.visualizer.VisualizerView;
@@ -49,23 +40,8 @@ import com.pheelicks.visualizer.renderer.Renderer;
 /**
  * A view who contains media artwork.
  */
-public class BackDropView extends FrameLayout {
-    final static String TAG = BackDropView.class.getSimpleName();
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
-    private PhoneStatusBar mPhoneStatusBar;
-
-    // the length to animate the visualizer in and out
-    private static final int VISUALIZER_ANIMATION_DURATION_IN = 300;
-    private static final int VISUALIZER_ANIMATION_DURATION_OUT = 0;
+public class BackDropView extends FrameLayout implements Palette.PaletteAsyncListener {
     private Runnable mOnVisibilityChangedRunnable;
-
-    private VisualizerView mVisualizer;
-    private boolean mScreenOn;
-    private boolean mLinked;
-    private boolean mVisualizerEnabled;
-    private boolean mPowerSaveModeEnabled;
-    private SettingsObserver mSettingsObserver;
 
     public BackDropView(Context context) {
         super(context);
@@ -79,8 +55,7 @@ public class BackDropView extends FrameLayout {
         super(context, attrs, defStyleAttr);
     }
 
-    public BackDropView(Context context, AttributeSet attrs, int defStyleAttr,
-                        int defStyleRes) {
+    public BackDropView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
     }
 
@@ -95,162 +70,44 @@ public class BackDropView extends FrameLayout {
         if (changedView == this && mOnVisibilityChangedRunnable != null) {
             mOnVisibilityChangedRunnable.run();
         }
-        if (!isShown()) {
-            requestVisualizer(false, 0);
-        }
     }
 
     public void setOnVisibilityChangedRunnable(Runnable runnable) {
         mOnVisibilityChangedRunnable = runnable;
     }
 
-    public void setService(PhoneStatusBar service) {
-        mPhoneStatusBar = service;
-    }
+    private boolean mLinked = false;
+    private boolean mVisible = false;
+    private boolean mPlaying = false;
+    private boolean mAnimating = false;
+    private boolean mTouching = false;
+    private boolean mPowerSaveMode = false;
+    private boolean mQsExpanded = false;
+    private int mColor;
 
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        mContext.registerReceiver(mReceiver, new IntentFilter(
-                PowerManager.ACTION_POWER_SAVE_MODE_CHANGING));
-        if (mSettingsObserver == null) {
-            mSettingsObserver = new SettingsObserver(new Handler());
-        }
-        mSettingsObserver.observe();
-    }
+    private VisualizerView mVisualizer;
+    private TileBarGraphRenderer mBarRenderer;
+    private ObjectAnimator mVisualizerColorAnimator;
 
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        mSettingsObserver.unobserve();
-        mContext.unregisterReceiver(mReceiver);
-        requestVisualizer(false, 0);
-    }
-
-    @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        if (ActivityManager.isHighEndGfx()) {
-            mVisualizer = (VisualizerView) findViewById(R.id.visualizerView);
+    private final Runnable mLinkVisualizer = new Runnable() {
+        @Override
+        public void run() {
             if (mVisualizer != null) {
-                Paint paint = new Paint();
-                Resources res = mContext.getResources();
-                paint.setStrokeWidth(res.getDimensionPixelSize(
-                        R.dimen.kg_visualizer_path_stroke_width));
-                paint.setAntiAlias(true);
-                paint.setColor(res.getColor(R.color.equalizer_fill_color));
-                paint.setPathEffect(new DashPathEffect(new float[]{
-                        res.getDimensionPixelSize(R.dimen.kg_visualizer_path_effect_1),
-                        res.getDimensionPixelSize(R.dimen.kg_visualizer_path_effect_2)
-                }, 0));
-
-                int bars = res.getInteger(R.integer.kg_visualizer_divisions);
-                mVisualizer.addRenderer(new LockscreenBarEqRenderer(bars, paint,
-                        res.getInteger(R.integer.kg_visualizer_db_fuzz),
-                        res.getInteger(R.integer.kg_visualizer_db_fuzz_factor)));
-            }
-        }
-        KeyguardUpdateMonitor.getInstance(mContext).registerCallback(mUpdateMonitorCallback);
-    }
-
-    public void requestVisualizer(boolean show, int delay) {
-        if (mVisualizer == null || !mVisualizerEnabled || mPowerSaveModeEnabled) {
-            return;
-        }
-        removeCallbacks(mStartVisualizer);
-        removeCallbacks(mStopVisualizer);
-        if (DEBUG) Log.d(TAG, "requestVisualizer(show: " + show + ", delay: " + delay + ")");
-        if (show && mScreenOn
-                && mPhoneStatusBar.getBarState() == StatusBarState.KEYGUARD
-                && !mPhoneStatusBar.isKeyguardFadingAway()
-                && !mPhoneStatusBar.isGoingToNotificationShade()
-                && mPhoneStatusBar.getCurrentMediaNotificationKey() != null) {
-            if (DEBUG) Log.d(TAG, "--> starting visualizer");
-            postDelayed(mStartVisualizer, delay);
-        } else {
-            if (DEBUG) Log.d(TAG, "--> stopping visualizer");
-            postDelayed(mStopVisualizer, delay);
-        }
-    }
-
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGING.equals(intent.getAction())) {
-                mPowerSaveModeEnabled = intent.getBooleanExtra(PowerManager.EXTRA_POWER_SAVE_MODE,
-                        false);
-                requestVisualizer(true, 0);
+                mVisualizer.link(0);
             }
         }
     };
 
-    private final Runnable mStartVisualizer = new Runnable() {
+    private final Runnable mUnlinkVisualizer = new Runnable() {
         @Override
         public void run() {
-            if (DEBUG) Log.w(TAG, "mStartVisualizer");
-
-            mVisualizer.animate()
-                    .alpha(1f)
-                    .setDuration(VISUALIZER_ANIMATION_DURATION_IN);
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
-                    if (mVisualizer != null && !mLinked) {
-                        mVisualizer.link(0);
-                        mLinked = true;
-                    }
-                }
-            });
+            if (mVisualizer != null) {
+                mVisualizer.unlink();
+            }
         }
     };
 
-    private final Runnable mStopVisualizer = new Runnable() {
-        @Override
-        public void run() {
-            if (DEBUG) Log.w(TAG, "mStopVisualizer");
-
-            mVisualizer.animate()
-                    .alpha(0f)
-                    .setDuration(VISUALIZER_ANIMATION_DURATION_OUT);
-            AsyncTask.execute(new Runnable() {
-                @Override
-                public void run() {
-                    if (mVisualizer != null && mLinked) {
-                        mVisualizer.unlink();
-                        mLinked = false;
-                    }
-                }
-            });
-        }
-    };
-
-    private final KeyguardUpdateMonitorCallback mUpdateMonitorCallback =
-            new KeyguardUpdateMonitorCallback() {
-                @Override
-                public void onUserSwitchComplete(int userId) {
-                }
-
-                @Override
-                public void onScreenTurnedOn() {
-                    mScreenOn = true;
-                    requestVisualizer(true, 300);
-                }
-
-                @Override
-                public void onScreenTurnedOff(int why) {
-                    mScreenOn = false;
-                    requestVisualizer(false, 0);
-                }
-
-                @Override
-                public void onKeyguardVisibilityChanged(boolean showing) {
-                    if (!showing) {
-                        requestVisualizer(false, 0);
-                    }
-                }
-            };
-
-    private static class LockscreenBarEqRenderer extends Renderer {
+    private static class TileBarGraphRenderer extends Renderer {
         private int mDivisions;
         private Paint mPaint;
         private int mDbFuzz;
@@ -264,12 +121,8 @@ public class BackDropView extends FrameLayout {
          * @param dbfuzz    - final dB display adjustment
          * @param dbFactor  - dbfuzz is multiplied by dbFactor.
          */
-        public LockscreenBarEqRenderer(int divisions, Paint paint, int dbfuzz, int dbFactor) {
+        public TileBarGraphRenderer(int divisions, Paint paint, int dbfuzz, int dbFactor) {
             super();
-            if (DEBUG) {
-                Log.d(TAG, "Lockscreen EQ Renderer; divisions:" + divisions + ", dbfuzz: "
-                        + dbfuzz + "dbFactor: " + dbFactor);
-            }
             mDivisions = divisions;
             mPaint = paint;
             mDbFuzz = dbfuzz;
@@ -292,40 +145,141 @@ public class BackDropView extends FrameLayout {
                 int dbValue = magnitude > 0 ? (int) (10 * Math.log10(magnitude)) : 0;
 
                 mFFTPoints[i * 4 + 1] = rect.height();
-                mFFTPoints[i * 4 + 3] = rect.height() - ((dbValue * mDbFuzzFactor) + mDbFuzz);
+                mFFTPoints[i * 4 + 3] = rect.height() - (dbValue * mDbFuzzFactor + mDbFuzz);
             }
 
             canvas.drawLines(mFFTPoints, mPaint);
         }
     }
 
-    private class SettingsObserver extends UserContentObserver {
-        SettingsObserver(Handler handler) {
-            super(handler);
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+
+        mVisualizer = (VisualizerView) findViewById(R.id.visualizerView);
+        mVisualizer.setEnabled(false);
+
+        Resources res = mContext.getResources();
+        mColor = res.getColor(R.color.equalizer_fill_color);
+        Paint paint = new Paint();
+        paint.setStrokeWidth(res.getDimensionPixelSize(R.dimen.kg_visualizer_path_stroke_width));
+        paint.setAntiAlias(true);
+        paint.setColor(mColor);
+        paint.setPathEffect(new DashPathEffect(new float[]{
+                res.getDimensionPixelSize(R.dimen.kg_visualizer_path_effect_1),
+                res.getDimensionPixelSize(R.dimen.kg_visualizer_path_effect_2)
+        }, 0));
+
+        int bars = res.getInteger(R.integer.kg_visualizer_divisions);
+        mBarRenderer = new TileBarGraphRenderer(bars, paint,
+                res.getInteger(R.integer.kg_visualizer_db_fuzz),
+                res.getInteger(R.integer.kg_visualizer_db_fuzz_factor));
+        mVisualizer.addRenderer(mBarRenderer);
+    }
+
+    public void setVisible(boolean visible) {
+        if (mVisible != visible) {
+            mVisible = visible;
+            if (!mVisible) {
+                mAnimating = false;
+                mTouching = false;
+            }
+            checkStateChanged();
         }
+    }
 
-        @Override
-        protected void observe() {
-            super.observe();
-            ContentResolver resolver = mContext.getContentResolver();
-            resolver.registerContentObserver(Settings.Secure.getUriFor(
-                            Settings.Secure.LOCKSCREEN_VISUALIZER_ENABLED),
-                    false, this, UserHandle.USER_ALL);
-            update();
+    public void setPlaying(boolean playing) {
+        if (mPlaying != playing) {
+            mPlaying = playing;
+            checkStateChanged();
         }
+    }
 
-        @Override
-        protected void unobserve() {
-            super.unobserve();
-            mContext.getContentResolver().unregisterContentObserver(this);
+    public void setAnimating(boolean animating) {
+        if (mAnimating != animating) {
+            mAnimating = animating;
+            checkStateChanged();
         }
+    }
 
-        @Override
-        public void update() {
-            ContentResolver resolver = mContext.getContentResolver();
-            mVisualizerEnabled = Settings.Secure.getIntForUser(resolver,
-                    Settings.Secure.LOCKSCREEN_VISUALIZER_ENABLED, 1, UserHandle.USER_CURRENT) != 0;
+    public void setTouching(boolean touching) {
+        if (mTouching != touching) {
+            mTouching = touching;
+            checkStateChanged();
+        }
+    }
 
+    public void setPowerSaveMode(boolean powerSaveMode) {
+        if (mPowerSaveMode != powerSaveMode) {
+            mPowerSaveMode = powerSaveMode;
+            checkStateChanged();
+        }
+    }
+
+    public void setQsExpanded(boolean qsExpanded) {
+        if (mQsExpanded != qsExpanded) {
+            mQsExpanded = qsExpanded;
+            checkStateChanged();
+        }
+    }
+
+    @Override
+    public void onGenerated(Palette palette) {
+        int color = Color.TRANSPARENT;
+
+        color = palette.getLightVibrantColor(color);
+        if (color == Color.TRANSPARENT) {
+            color = palette.getVibrantColor(color);
+            if (color == Color.TRANSPARENT) {
+                color = palette.getDarkVibrantColor(color);
+            }
+        }
+        setVisualizerColor(color);
+    }
+
+    public void setBitmap(Bitmap bitmap) {
+        if (bitmap != null) {
+            Palette.generateAsync(bitmap, this);
+        } else {
+            setVisualizerColor(Color.TRANSPARENT);
+        }
+    }
+
+    private void setVisualizerColor(int color) {
+        if (color == Color.TRANSPARENT) {
+            color = mContext.getResources().getColor(R.color.equalizer_fill_color);
+        }
+        if (mColor != color) {
+            mColor = color;
+
+            if (mLinked) {
+                if (mVisualizerColorAnimator != null) {
+                    mVisualizerColorAnimator.cancel();
+                }
+                mVisualizerColorAnimator = ObjectAnimator.ofArgb(mBarRenderer.mPaint, "color",
+                        mBarRenderer.mPaint.getColor(), mColor);
+                mVisualizerColorAnimator.setStartDelay(500);
+                mVisualizerColorAnimator.setDuration(1200);
+                mVisualizerColorAnimator.start();
+            } else {
+                mBarRenderer.mPaint.setColor(mColor);
+            }
+        }
+    }
+
+    private void checkStateChanged() {
+        if (mVisible && mPlaying && !mAnimating && !mTouching && !mPowerSaveMode && !mQsExpanded) {
+            if (!mLinked) {
+                mVisualizer.animate().alpha(1f).setDuration(300);
+                AsyncTask.execute(mLinkVisualizer);
+                mLinked = true;
+            }
+        } else {
+            if (mLinked) {
+                mVisualizer.animate().alpha(0f).setDuration(0);
+                AsyncTask.execute(mUnlinkVisualizer);
+                mLinked = false;
+            }
         }
     }
 }

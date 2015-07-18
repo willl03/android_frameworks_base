@@ -47,7 +47,6 @@ import android.provider.Settings.Global;
 import android.provider.Settings.Secure;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import android.text.format.DateFormat;
 import android.util.Log;
 
 import com.android.internal.content.PackageHelper;
@@ -81,10 +80,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // is properly propagated through your change.  Not doing so will result in a loss of user
     // settings.
     private static final int DATABASE_VERSION = 125;
-
-    private static final String HEADSET = "_headset";
-    private static final String SPEAKER = "_speaker";
-    private static final String EARPIECE = "_earpiece";
 
     private Context mContext;
     private int mUserHandle;
@@ -2348,10 +2343,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
      */
     private void loadVolumeLevels(SQLiteDatabase db) {
         SQLiteStatement stmt = null;
-        if (mContext.getResources().getBoolean(R.bool.def_custom_sys_volume)) {
-            loadCustomizedVolumeLevels(db);
-            return;
-        }
         try {
             stmt = db.compileStatement("INSERT OR IGNORE INTO system(name,value)"
                     + " VALUES(?,?);");
@@ -2376,97 +2367,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     stmt,
                     Settings.System.VOLUME_BLUETOOTH_SCO,
                     AudioManager.DEFAULT_STREAM_VOLUME[AudioManager.STREAM_BLUETOOTH_SCO]);
-
-            // By default:
-            // - ringtones, notification, system and music streams are affected by ringer mode
-            // on non voice capable devices (tablets)
-            // - ringtones, notification and system streams are affected by ringer mode
-            // on voice capable devices (phones)
-            int ringerModeAffectedStreams = (1 << AudioManager.STREAM_RING) |
-                                            (1 << AudioManager.STREAM_NOTIFICATION) |
-                                            (1 << AudioManager.STREAM_SYSTEM) |
-                                            (1 << AudioManager.STREAM_SYSTEM_ENFORCED);
-            if (!mContext.getResources().getBoolean(
-                    com.android.internal.R.bool.config_voice_capable)) {
-                ringerModeAffectedStreams |= (1 << AudioManager.STREAM_MUSIC);
-            }
-            loadSetting(stmt, Settings.System.MODE_RINGER_STREAMS_AFFECTED,
-                    ringerModeAffectedStreams);
-
-            loadSetting(stmt, Settings.System.MUTE_STREAMS_AFFECTED,
-                    ((1 << AudioManager.STREAM_MUSIC) |
-                     (1 << AudioManager.STREAM_RING) |
-                     (1 << AudioManager.STREAM_NOTIFICATION) |
-                     (1 << AudioManager.STREAM_SYSTEM)));
-        } finally {
-            if (stmt != null) stmt.close();
-        }
-
-        loadVibrateWhenRingingSetting(db);
-    }
-
-    private void loadCustomizedVolumeLevels(SQLiteDatabase db) {
-        SQLiteStatement stmt = null;
-        try {
-            stmt = db.compileStatement("INSERT OR IGNORE INTO system(name,value)"
-                    + " VALUES(?,?);");
-
-            loadSetting(stmt, Settings.System.VOLUME_MUSIC,
-                    mContext.getResources().getInteger(R.integer.def_music_volume));
-            loadSetting(stmt, Settings.System.VOLUME_RING,
-                    mContext.getResources().getInteger(R.integer.def_ringtone_volume));
-            loadSetting(stmt, Settings.System.VOLUME_SYSTEM,
-                    mContext.getResources().getInteger(R.integer.def_system_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_VOICE,
-                    mContext.getResources().getInteger(R.integer.def_voice_call_volume));
-            loadSetting(stmt, Settings.System.VOLUME_ALARM,
-                    mContext.getResources().getInteger(R.integer.def_alarm_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_NOTIFICATION,
-                    mContext.getResources().getInteger(R.integer.def_notification_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_BLUETOOTH_SCO,
-                    mContext.getResources().getInteger(R.integer.def_bluetooth_sco_volume));
-
-            // set headset default volume
-            loadSetting(stmt, Settings.System.VOLUME_MUSIC + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_music_headset_volume));
-            loadSetting(stmt, Settings.System.VOLUME_RING + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_ringtone_headset_volume));
-            loadSetting(stmt, Settings.System.VOLUME_SYSTEM + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_system_headset_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_VOICE + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_voice_call_headset_volume));
-            loadSetting(stmt, Settings.System.VOLUME_ALARM + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_alarm_headset_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_NOTIFICATION + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_notification_headset_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_BLUETOOTH_SCO + HEADSET,
-                    mContext.getResources().getInteger(R.integer.def_bluetooth_sco_headset_volume));
-
-            // set speaker default volume
-            loadSetting(stmt, Settings.System.VOLUME_RING + SPEAKER,
-                    mContext.getResources().getInteger(R.integer.def_ringtone_speaker_volume));
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_VOICE + SPEAKER,
-                    mContext.getResources().getInteger(R.integer.def_voice_call_speaker_volume));
-
-            // set earpiece default volume
-            loadSetting(
-                    stmt,
-                    Settings.System.VOLUME_VOICE + EARPIECE,
-                    mContext.getResources().getInteger(R.integer.def_voice_call_earpiece_volume));
 
             // By default:
             // - ringtones, notification, system and music streams are affected by ringer mode
@@ -2604,12 +2504,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             loadIntegerSetting(stmt, Settings.System.POINTER_SPEED,
                     R.integer.def_pointer_speed);
 
-            boolean is24Hour = DateFormat.is24HourFormatLocale(mContext);
-            String defaultTimeFormat = is24Hour ? "24" : "12";
-            loadSetting(stmt, Settings.System.TIME_12_24, defaultTimeFormat);
+            if (!TextUtils.isEmpty(mContext.getResources().getString(R.string.def_time_format))) {
+                loadStringSetting(stmt, Settings.System.TIME_12_24,
+                        R.string.def_time_format);
+            }
 
-            loadStringSetting(stmt, Settings.System.DATE_FORMAT,
-                    R.string.def_date_format);
+            if (!TextUtils.isEmpty(mContext.getResources().getString(R.string.def_date_format))) {
+                loadStringSetting(stmt, Settings.System.DATE_FORMAT,
+                        R.string.def_date_format);
+            }
+
+            loadIntegerSetting(stmt, Settings.System.DOUBLE_TAP_SLEEP_GESTURE,
+                    R.integer.def_double_tap_sleep_gesture);
 
             loadIntegerSetting(stmt, Settings.System.STATUS_BAR_NOTIF_COUNT,
                     R.integer.def_notif_count);
@@ -2628,6 +2534,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             loadIntegerSetting(stmt, Settings.System.QS_QUICK_PULLDOWN,
                     R.integer.def_qs_quick_pulldown);
+
+            loadBooleanSetting(stmt, Settings.System.SWAP_VOLUME_KEYS_ON_ROTATION,
+                    R.bool.def_swap_volume_keys_on_rotation);
 
         } finally {
             if (stmt != null) stmt.close();
