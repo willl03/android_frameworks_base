@@ -19,7 +19,7 @@
   <string name="clear_recents">Zapri vsa nedavna</string>
   <string name="screenshot_delete_action">Izbriši</string>
   <string name="screenshot_delete_confirmation">Zaslonska slika je bila izbrisana.</string>
-  <string name="advanced_dev_option_wipe_app">Izbriši podatke aplikacije</string>
+  <string name="advanced_dev_option_wipe_app">Izbriši podatke programe</string>
   <string name="advanced_dev_option_force_stop">Vsili ustavitev</string>
   <string name="advanced_dev_option_uninstall">Odstrani</string>
   <string name="accessibility_quick_settings_data_off">Mobilni podatki izklopljeni.</string>
@@ -40,10 +40,10 @@
   <string name="accessibility_quick_settings_compass_on">Kompas vklopljen.</string>
   <string name="accessibility_quick_settings_compass_changed_off">Kompas izklopljen.</string>
   <string name="accessibility_quick_settings_compass_changed_on">Kompas vklopljen.</string>
-  <string name="accessibility_quick_settings_heads_up_off">Opozorilo izklopljeno.</string>
-  <string name="accessibility_quick_settings_heads_up_on">Opozorilo vklopljeno.</string>
-  <string name="accessibility_quick_settings_heads_up_changed_off">Opozorilo izklopljeno.</string>
-  <string name="accessibility_quick_settings_heads_up_changed_on">Opozorilo vklopljeno.</string>
+  <string name="accessibility_quick_settings_heads_up_off">Obvestila na zasl. izk.</string>
+  <string name="accessibility_quick_settings_heads_up_on">Obvestila na zasl. vkl.</string>
+  <string name="accessibility_quick_settings_heads_up_changed_off">Obvestila na zaslonu izklopljena.</string>
+  <string name="accessibility_quick_settings_heads_up_changed_on">Obvestila na zaslonu vklopljena.</string>
   <string name="accessibility_quick_settings_hotspot_off">Prenosna dostopna točka izklopljena.</string>
   <string name="accessibility_quick_settings_hotspot_on">Prenosna dostopna točka vklopljena.</string>
   <string name="accessibility_quick_settings_live_display_off">LiveDisplay izklopljen.</string>
@@ -117,7 +117,7 @@
   <string name="quick_settings_lte_label">LTE</string>
   <string name="quick_settings_screen_timeout_detail_title">Časovna omejitev zaslona</string>
   <string name="quick_settings_usb_tether_label">Delj. mob. int. USB</string>
-  <string name="quick_settings_heads_up_label">Opozorilo</string>
+  <string name="quick_settings_heads_up_label">Obvestila na zaslonu</string>
   <string name="quick_settings_ambient_display_label">Okoliški zaslon</string>
   <string name="quick_settings_sync_label">Sinhronizacija</string>
   <string name="quick_settings_custom_tile_detail_title">Ploščica po meri</string>
@@ -137,7 +137,7 @@
   <string name="navring_target_reset_message">Izbriši vse uporabniške bližnjice vrstice za krmarjenje in obnovi na privzeto?</string>
   <string name="navring_target_reset">Bližnjice vrstice za krmarjenje ponastavljene na privzeto</string>
   <string name="navring_action_open_ime_switcher">Odpri preklopnik IME</string>
-  <string name="navring_action_kill_app">Uniči aplikacijo</string>
+  <string name="navring_action_kill_app">Uniči program</string>
   <string name="navring_action_none">Brez</string>
   <string name="navring_action_take_screenshot">Zajemi zaslonsko sliko</string>
   <string name="navring_action_ring_vibrate">Zvonjenje/Vibriranje</string>
@@ -147,7 +147,7 @@
   <string name="navring_action_torch">Preklopi svetilko</string>
   <string name="navring_action_google_now">Google Now</string>
   <string name="navring_choose_action_title">Izberite dejanje</string>
-  <string name="select_application">Izberite aplikacijo</string>
+  <string name="select_application">Izberite program</string>
   <string name="lockscreen_target_empty">Prazno</string>
   <string name="screen_pinning_description_no_navbar">To jo ohrani prikazano, dokler je ne odpnete. Tapnite in pridržite gumb Nazaj, da jo odpnete.</string>
   <string name="interruption_level_silent">Tiho</string>
