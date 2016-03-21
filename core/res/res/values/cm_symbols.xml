@@ -79,7 +79,6 @@
     <!-- From services -->
     <java-symbol type="array" name="app_ops_labels" />
 
-    <java-symbol type="bool" name="config_setZenModeWhenSilentModeOn" />
     <java-symbol type="bool" name="config_deviceHasVariableButtonBrightness" />
 
     <java-symbol type="integer" name="config_buttonBrightnessSettingDefault" />
@@ -188,6 +187,7 @@
     <java-symbol type="bool" name="config_multiColorNotificationLed" />
     <java-symbol type="bool" name="config_intrusiveBatteryLed" />
     <java-symbol type="bool" name="config_multiColorBatteryLed" />
+    <java-symbol type="bool" name="config_multipleNotificationLeds" />
     <java-symbol type="array" name="notification_light_package_mapping" />
     <java-symbol type="array" name="config_notificationNoAlertsVibePattern" />
 
@@ -377,4 +377,7 @@
     <!-- Support Samsung docks -->
     <java-symbol type="bool" name="config_forceAnalogCarDock" />
     <java-symbol type="bool" name="config_forceAnalogDeskDock" />
+
+    <!-- Wifi idle time default -->
+    <java-symbol type="integer" name="def_wifi_idle_ms" />
 </resources>

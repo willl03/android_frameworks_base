@@ -68,6 +68,8 @@ import android.util.Log;
 import com.android.internal.R;
 import com.android.internal.util.cm.ImageUtils;
 
+import cyanogenmod.providers.CMSettings;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -98,6 +100,7 @@ public class ThemeService extends IThemeService.Stub {
 
     private static final String GOOGLE_SETUPWIZARD_PACKAGE = "com.google.android.setupwizard";
     private static final String CM_SETUPWIZARD_PACKAGE = "com.cyanogenmod.setupwizard";
+    private static final String MANAGED_PROVISIONING_PACKAGE = "com.android.managedprovisioning";
 
     private static final long MAX_ICON_CACHE_SIZE = 33554432L; // 32MB
     private static final long PURGED_ICON_CACHE_SIZE = 25165824L; // 24 MB
@@ -467,8 +470,8 @@ public class ThemeService extends IThemeService.Stub {
         final String defaultThemePkg = Settings.Secure.getString(resolver,
                 Settings.Secure.DEFAULT_THEME_PACKAGE);
         if (!TextUtils.isEmpty(defaultThemePkg)) {
-            String defaultThemeComponents = Settings.Secure.getString(resolver,
-                    Settings.Secure.DEFAULT_THEME_COMPONENTS);
+            String defaultThemeComponents = CMSettings.Secure.getString(resolver,
+                    CMSettings.Secure.DEFAULT_THEME_COMPONENTS);
             List<String> components;
             if (TextUtils.isEmpty(defaultThemeComponents)) {
                 components = ThemeUtils.getAllComponents();
@@ -871,6 +874,7 @@ public class ThemeService extends IThemeService.Stub {
 
     private boolean isSetupActivity(ResolveInfo info) {
         return GOOGLE_SETUPWIZARD_PACKAGE.equals(info.activityInfo.packageName) ||
+               MANAGED_PROVISIONING_PACKAGE.equals(info.activityInfo.packageName) ||
                CM_SETUPWIZARD_PACKAGE.equals(info.activityInfo.packageName);
     }
 

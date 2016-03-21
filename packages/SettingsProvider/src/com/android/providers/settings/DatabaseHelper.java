@@ -2498,8 +2498,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             loadBooleanSetting(stmt, Settings.System.SCREEN_BRIGHTNESS_MODE,
                     R.bool.def_screen_brightness_automatic_mode);
 
-            loadDefaultAnimationSettings(stmt);
-
             loadBooleanSetting(stmt, Settings.System.ACCELEROMETER_ROTATION,
                     R.bool.def_accelerometer_rotation);
 
@@ -2510,6 +2508,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             loadBooleanSetting(stmt, Settings.System.NOTIFICATION_LIGHT_PULSE,
                     R.bool.def_notification_pulse);
+
+            loadBooleanSetting(stmt, Settings.System.NOTIFICATION_LIGHT_PULSE_CUSTOM_ENABLE,
+                    R.bool.def_notification_pulse_custom_enable);
+
+            if (mContext.getResources().getBoolean(R.bool.def_notification_pulse_custom_enable)) {
+                loadStringSetting(stmt,Settings.System.NOTIFICATION_LIGHT_PULSE_CUSTOM_VALUES,
+                        R.string.def_notification_pulse_custom_value);
+            }
 
             loadUISoundEffectsSettings(stmt);
 
@@ -2553,6 +2559,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             loadIntegerSetting(stmt, Settings.System.NOTIFICATION_LIGHT_BRIGHTNESS_LEVEL,
                     R.integer.def_notification_brightness_level);
 
+            loadBooleanSetting(stmt, Settings.System.NOTIFICATION_LIGHT_MULTIPLE_LEDS_ENABLE,
+                    R.bool.def_notification_multiple_leds);
+
             loadBooleanSetting(stmt, Settings.System.SYSTEM_PROFILES_ENABLED,
                     R.bool.def_system_profiles_enabled);
 
@@ -2568,15 +2577,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 R.bool.def_sound_effects_enabled);
         loadBooleanSetting(stmt, Settings.System.HAPTIC_FEEDBACK_ENABLED,
                 R.bool.def_haptic_feedback);
+        loadBooleanSetting(stmt, Settings.System.VOLUME_ADJUST_SOUNDS_ENABLED,
+                R.bool.def_volume_adjust_sounds_enabled);
 
         loadIntegerSetting(stmt, Settings.System.LOCKSCREEN_SOUNDS_ENABLED,
             R.integer.def_lockscreen_sounds_enabled);
     }
 
     private void loadDefaultAnimationSettings(SQLiteStatement stmt) {
-        loadFractionSetting(stmt, Settings.System.WINDOW_ANIMATION_SCALE,
+        loadFractionSetting(stmt, Settings.Global.WINDOW_ANIMATION_SCALE,
                 R.fraction.def_window_animation_scale, 1);
-        loadFractionSetting(stmt, Settings.System.TRANSITION_ANIMATION_SCALE,
+        loadFractionSetting(stmt, Settings.Global.TRANSITION_ANIMATION_SCALE,
                 R.fraction.def_window_transition_scale, 1);
     }
 
@@ -2666,6 +2677,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     com.android.internal.R.string.config_dreamsDefaultComponent);
             loadStringSetting(stmt, Settings.Secure.SCREENSAVER_DEFAULT_COMPONENT,
                     com.android.internal.R.string.config_dreamsDefaultComponent);
+            loadBooleanSetting(stmt, Settings.Secure.DOZE_ENABLED,
+                                     R.bool.def_dozeEnabledByDefault);
 
             loadBooleanSetting(stmt, Settings.Secure.ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED,
                     R.bool.def_accessibility_display_magnification_enabled);
@@ -2947,6 +2960,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             loadBooleanSetting(stmt, Settings.Global.GUEST_USER_ENABLED,
                     R.bool.def_guest_user_enabled);
+
+            loadDefaultAnimationSettings(stmt);
             // --- New global settings start here
         } finally {
             if (stmt != null) stmt.close();

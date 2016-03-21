@@ -1964,6 +1964,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     }
 
     public void updateSettings() {
+        Slog.i(TAG, "+++++ updateSettings() mUserRotationMode; " + mUserRotationMode + ", mUserRotation: " + mUserRotation);
         ContentResolver resolver = mContext.getContentResolver();
         boolean updateRotation = false;
         int mDeviceHardwareWakeKeys = mContext.getResources().getInteger(
@@ -2019,7 +2020,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
 
             final boolean useEdgeService = Settings.System.getIntForUser(resolver,
-                    Settings.System.USE_EDGE_SERVICE_FOR_GESTURES, 1, UserHandle.USER_CURRENT) == 1;
+                    Settings.System.USE_EDGE_SERVICE_FOR_GESTURES, 0, UserHandle.USER_CURRENT) == 1;
             if (useEdgeService ^ mUsingEdgeGestureServiceForGestures && mSystemReady) {
                 if (!mUsingEdgeGestureServiceForGestures && useEdgeService) {
                     mUsingEdgeGestureServiceForGestures = true;
@@ -2088,6 +2089,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
             WindowManagerPolicyControl.reloadFromSetting(mContext);
         }
+        Slog.i(TAG, "----- updateSettings() mUserRotationMode; " + mUserRotationMode + ", mUserRotation: " + mUserRotation + "updateRotation: " + updateRotation);
         if (updateRotation) {
             updateRotation(true);
         }
@@ -3388,7 +3390,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         // Display task switcher for ALT-TAB.
         if (down && repeatCount == 0 && keyCode == KeyEvent.KEYCODE_TAB) {
-            if (mRecentAppsHeldModifiers == 0 && !keyguardOn) {
+            if (mRecentAppsHeldModifiers == 0 && !keyguardOn && isUserSetupComplete()) {
                 final int shiftlessModifiers = event.getModifiers() & ~KeyEvent.META_SHIFT_MASK;
                 if (KeyEvent.metaStateHasModifiers(shiftlessModifiers, KeyEvent.META_ALT_ON)) {
                     mRecentAppsHeldModifiers = shiftlessModifiers;
@@ -6341,7 +6343,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     @Override
     public int rotationForOrientationLw(int orientation, int lastRotation) {
-        if (false) {
+        if (true) {
             Slog.v(TAG, "rotationForOrientationLw(orient="
                         + orientation + ", last=" + lastRotation
                         + "); user=" + mUserRotation + " "
@@ -6555,6 +6557,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     // User rotation: to be used when all else fails in assigning an orientation to the device
     @Override
     public void setUserRotationMode(int mode, int rot) {
+        Slog.i(TAG, "setUserRotationMode() called with " + "mode = [" + mode + "], rot = [" + rot + "]");
         ContentResolver res = mContext.getContentResolver();
 
         // mUserRotationMode and mUserRotation will be assigned by the content observer

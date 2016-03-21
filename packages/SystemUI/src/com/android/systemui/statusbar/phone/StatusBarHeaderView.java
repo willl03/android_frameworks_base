@@ -572,6 +572,9 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
     public void setUserInfoController(UserInfoController userInfoController) {
         mUserInfoController = userInfoController;
         userInfoController.addListener(mUserInfoChangedListener);
+        if (mMultiUserSwitch != null) {
+            mMultiUserSwitch.setUserInfoController(mUserInfoController);
+        }
     }
 
     @Override
@@ -582,8 +585,8 @@ public class StatusBarHeaderView extends RelativeLayout implements View.OnClickL
             startBatteryActivity();
         } else if (v == mAlarmStatus && mNextAlarm != null) {
             PendingIntent showIntent = mNextAlarm.getShowIntent();
-            if (showIntent != null && showIntent.isActivity()) {
-                mActivityStarter.startActivity(showIntent.getIntent(), true /* dismissShade */);
+            if (showIntent != null) {
+                mActivityStarter.startPendingIntentDismissingKeyguard(showIntent);
             }
         } else if (v == mClock) {
             startClockActivity();
